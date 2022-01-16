@@ -64,11 +64,25 @@ struct bmp_info_header {
 // in case the bmp file has its compression field set to '3', the
 // file contains the bitmasks for extracting the rgb values from
 // the data bytes.
-u32 bitmasks[3];
+u32 bitmasks[3] = {
+   0x00ff0000,
+   0x0000ff00,
+   0x000000ff
+};
 
 // a global pointer of pointers that is allocated memory on the heap
 // at runtime. It stores a 2D array of pixel color data - rgba.
 Color **pixels;
+
+// for bit depths 8 and below, there is a color table present, with
+// 2^n entries where n is number of bits per pixel. Since value has
+// to be less than 2^8 (256), here's a global array of 256 Colors to
+// store the color table data.
+Color color_table[256];
+
+void print_color(Color c) {
+   printf("%x %x %x %x\n", c.r, c.g, c.b, c.a);
+}
 
 // are_equal : a function that compares the first 'n' bytes of two 
 // byte buffers of the same size.
@@ -105,8 +119,6 @@ byte
 read_header(bmp_header *hdr, FILE *file) {
    read_bytes(file, byteptr(hdr->type), 2, 0);
    if (!are_equal(byteptr(hdr->type), (byte *)"BM", 2)) return 1;
-   // char* cptr = (char*)(&hdr->type);
-   // if (*cptr == 'B' && *(cptr + 1) == 'M') return 1;
 
    read_bytes(file, byteptr(hdr->size), 4, 0);
    read_bytes(file, byteptr(hdr->reserved1), 2, 0);
@@ -138,7 +150,12 @@ read_info_header(bmp_info_header *hdr, FILE *file) {
 
    // taking absolute values because height and width appear to
    // (sometimes) get read as negative values.
-   hdr->height = abs(hdr->height);
+   //
+   // According to :
+   // https://cdn.hackaday.io/files/274271173436768/Simplified%20Windows%20BMP%20Bitmap%20File%20Format%20Specification.htm#The%20Color%20Table
+   //     If the image height is given as a negative 
+   //     number, then the rows are ordered from top to bottom.
+
    hdr->width = abs(hdr->width);
 
    // @delete
@@ -148,35 +165,77 @@ read_info_header(bmp_info_header *hdr, FILE *file) {
    printf("bits perpix : %d\n", hdr->bits_pp);
 }
 
+void
+process_color_table(bmp_info_header *hdr, FILE* file) {
+   // seek till the end of the 2 headers
+   fseek(file, 16 + hdr->info_hdr_size, SEEK_SET);
+   printf("looking for color table @ %ld\n", ftell(file));
+   printf("reading the %d entries in the color table\n", hdr->num_colors);
+
+   // if the bit depth is 8 or less, read the colors into the color table
+   if (hdr->bits_pp <= 8) {
+      for (int l = 0; l < hdr->num_colors; l++) {
+         u32 ct_entry = 0;
+         read_bytes(file, byteptr(ct_entry), 4, 0);
+         printf("# %x\n", ct_entry);
+         color_table[l].a = 0xff;
+         color_table[l].r = ct_entry & 0xff;
+         color_table[l].g = (ct_entry >> 24) & 0xff;
+         color_table[l].b = (ct_entry >> 16) & 0xff;
+         printf("color : %x\n", ct_entry);
+         print_color(color_table[l]);
+      }
+   }
+
+   int p = 20;
+   int w = 16 * p;
+   int h = p;
+   InitWindow(w, h, "color table");
+   SetTargetFPS(60);
+
+   while (!WindowShouldClose()) {
+      BeginDrawing();
+      for (int i = 0; i < 16; i++) {
+         DrawRectangle(i * p, 0, p, p, color_table[i]);
+      }
+      EndDrawing();
+   }
+   CloseWindow();
+}
+
 // read_and_parse_pixel : 
 void
-read_and_parse_pixel(byte bytes_pp, Color *c, u32 bytes) {
+read_and_parse_pixel(byte bits_pp, Color *c, u32 bytes) {
    c->a = 0xff; // for now, all pixels have alpha 255
-   switch (bytes_pp) {
-      case 4:
-         // if we read 4 bytes per pixel, we extract the rgba values using the
-         // masks that we read previously. 0xaabbccdd will get translated to
-         // 0xaabbccdd & 0x00ff0000 >> 16 = 0xbb
-         // 0xaabbccdd & 0x0000ff00 >>  8 = 0xcc
-         // 0xaabbccdd & 0x000000ff       = 0xdd
+   switch (bits_pp) {
+      case 24: case 32:
+         // if we read 4 or 3 bytes per pixel, we extract the rgba values 
+         // using the masks that we read previously. 0xaabbccdd will get 
+         // translated to : 
+         // 0x__bbccdd & 0x00ff0000 >> 16 = 0xbb
+         // 0x__bbccdd & 0x0000ff00 >>  8 = 0xcc
+         // 0x__bbccdd & 0x000000ff       = 0xdd
          // and for the moment I'm assuming that the alpha value for every pixel
-         // is 255 by default.
+         // is 255 by default. So the process for 4 or 3 bytes per pixel is the
+         // same.
          c->r = (bitmasks[0] & bytes) >> 16;
          c->g = (bitmasks[1] & bytes) >> 8;
          c->b = (bitmasks[2] & bytes);
          break;
-      case 3:
-         printf("work in progress\n");
-         exit(1);
-      case 1:
-         printf("work in progress\n");
-         exit(1);
-         // c->r = ((0xe0 & bytes) >> 5);
-         // c->g = ((0x1c & bytes) >> 2);
-         // c->b = ((0x03 & bytes));
+
+      case 16:
+         // using the RGB_555 format where the msbit of the 16 bit color code
+         // is left out. So every color is _rrrrrgggggbbbbb
+         c->r = (((bytes >> 10) & 0x1F) * 255) / 31;
+         c->g = (((bytes >>  5) & 0x1F) * 255) / 31;
+         c->b = (((bytes)       & 0x1F) * 255) / 31;
          break;
+
+      case 8:
+         break;
+
       default:
-         printf("%d bit per pixel images not supported yet.\n", bytes_pp * 8);
+         printf("%d bit per pixel images not supported yet.\n", bits_pp);
          exit(1);
    }
 }
@@ -186,12 +245,7 @@ read_and_parse_pixel(byte bytes_pp, Color *c, u32 bytes) {
 void
 decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, FILE *file) {
    byte bytes_pp = 0;
-   switch (hdr->compression) {
-      case 3:
-         read_bytes(file, byteptr(bitmasks), 12, 0);
-         break;
-   }
-   
+
    // currently supports only reading images
    // with 8 bits per pixel or more
    bytes_pp = hdr->bits_pp / 8;
@@ -199,21 +253,30 @@ decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, 
    // @delete
    printf("reading %d bytes per pixel\n", bytes_pp);
 
-   // skip the color table or whatever for the moment
-   // directly skip to the start byte of the image data section
+   process_color_table(hdr, file);
    fseek(file, bhdr->offset, SEEK_SET);
 
    // the image's pixel data is stored starting from the bottom left pixel
    // going sideways and up as the rows fill up, like so
    //       5 6 7 8
    //       1 2 3 4
-   for (int i = height - 1; i >= 0; i--) {
-      for (int j = 0; j < width; j++){
-         u32 pixel_data;
-         read_bytes(file, byteptr(pixel_data), bytes_pp, 0);
-         read_and_parse_pixel(bytes_pp, &pixels[i][j], pixel_data);
-         // @delete
-         // printf("reading into (%d, %d) : color {r:%x, g:%x, b:%x, a:%x}\n", i, j, pixels[i][j].r, pixels[i][j].g, pixels[i][j].b, pixels[i][j].a);
+   // The pixel data is organized in rows from bottom to top and, within 
+   // each row, from left to right.
+   
+   for (int i = (height < 0 ? 0 : height - 1); 
+                (height < 0 ? i < -height : i >= 0);
+                (height < 0 ? i++ : i--)) {
+
+      for (int j = 0; j < width; j++) {
+         if (hdr->bits_pp == 8) {
+            byte c_index;
+            read_bytes(file, &c_index, 1, 0);
+            pixels[i][j] = color_table[c_index];
+         } else {
+            u32 pixel_data;
+            read_bytes(file, byteptr(pixel_data), bytes_pp, 0);
+            read_and_parse_pixel(hdr->bits_pp, &pixels[i][j], pixel_data);
+         }
       }
    }
 }
@@ -222,8 +285,9 @@ decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, 
 // desired image pixel by pixel
 void
 draw_image(i32 width, i32 height) {
-   int p = 10;
+   int p = (width > 70) ? 1 : ((height > 70) ? 1 : 10);
    int w = width * p;
+   height = abs(height);
    int h = height * p;
    InitWindow(w, h, "bmp-vyu");
    SetTargetFPS(60);
@@ -237,6 +301,7 @@ draw_image(i32 width, i32 height) {
    //    printf("row : %d\n", i);
    // }
 
+   printf("height : %d", height);
    while (!WindowShouldClose()) {
       BeginDrawing();
       for (int i = 0; i < height; i++) {
@@ -268,8 +333,8 @@ main(int argc, char **argv) {
 
    read_info_header(&info_hdr, image_file);
 
-   pixels = (Color **) malloc (sizeof(Color *) * info_hdr.height);
-   for (int i = 0; i < info_hdr.height; i++) pixels[i] = (Color *)malloc(sizeof(Color) * info_hdr.width);
+   pixels = (Color **) malloc (sizeof(Color *) * abs(info_hdr.height));
+   for (int i = 0; i < abs(info_hdr.height); i++) pixels[i] = (Color *)malloc(sizeof(Color) * info_hdr.width);
 
    decompress_image(info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
    draw_image(info_hdr.width, info_hdr.height);
