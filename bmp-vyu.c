@@ -1,3 +1,4 @@
+//   ---------------------------------------------------------------------
 //   Copyright (C) 2022 Ashwin Godbole
 //   ---------------------------------------------------------------------
 //   This file is part of bmp-vyu.
@@ -253,7 +254,10 @@ decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, 
    // @delete
    printf("reading %d bytes per pixel\n", bytes_pp);
 
-   process_color_table(hdr, file);
+   if (hdr->bits_pp == 8) {
+      process_color_table(hdr, file);
+   }
+   
    fseek(file, bhdr->offset, SEEK_SET);
 
    // the image's pixel data is stored starting from the bottom left pixel
@@ -271,6 +275,7 @@ decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, 
          if (hdr->bits_pp == 8) {
             byte c_index;
             read_bytes(file, &c_index, 1, 0);
+            printf("index : %x\n", c_index);
             pixels[i][j] = color_table[c_index];
          } else {
             u32 pixel_data;
