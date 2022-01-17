@@ -157,7 +157,7 @@ read_info_header(bmp_info_header *hdr, FILE *file) {
    //     If the image height is given as a negative 
    //     number, then the rows are ordered from top to bottom.
 
-   hdr->width = abs(hdr->width);
+   hdr->width = hdr->width;
 
    // @delete
    printf("image width : %d\n", hdr->width);
