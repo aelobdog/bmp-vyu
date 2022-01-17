@@ -178,26 +178,28 @@ process_color_table(bmp_info_header *hdr, FILE* file) {
       for (int l = 0; l < hdr->num_colors; l++) {
          u32 ct_entry = 0;
          read_bytes(file, byteptr(ct_entry), 4, 0);
-         printf("# %x\n", ct_entry);
+         // printf("# %x\n", ct_entry);
          color_table[l].a = 0xff;
          color_table[l].r = ct_entry & 0xff;
          color_table[l].g = (ct_entry >> 24) & 0xff;
          color_table[l].b = (ct_entry >> 16) & 0xff;
-         printf("color : %x\n", ct_entry);
-         print_color(color_table[l]);
+         // printf("color : %x\n", ct_entry);
+         // print_color(color_table[l]);
       }
    }
 
    int p = 20;
    int w = 16 * p;
-   int h = p;
+   int h = (hdr->num_colors / 16) * p;
    InitWindow(w, h, "color table");
    SetTargetFPS(60);
 
    while (!WindowShouldClose()) {
       BeginDrawing();
-      for (int i = 0; i < 16; i++) {
-         DrawRectangle(i * p, 0, p, p, color_table[i]);
+      int j = 0;
+      for (int i = 0; i < hdr->num_colors; i++) {
+         DrawRectangle(i * p, j * p, p, p, color_table[i]);
+         if (i != 0 && i % w == 0) j++;
       }
       EndDrawing();
    }
@@ -275,7 +277,7 @@ decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, 
          if (hdr->bits_pp == 8) {
             byte c_index;
             read_bytes(file, &c_index, 1, 0);
-            printf("index : %x\n", c_index);
+            // printf("index : %x\n", c_index);
             pixels[i][j] = color_table[c_index];
          } else {
             u32 pixel_data;
