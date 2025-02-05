@@ -19,6 +19,8 @@
 #ifndef BMP_VYU_H
 #define BMP_VYU_H
 
+#include <raylib.h>
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +64,7 @@ byte read_header(bmp_header *hdr, FILE *file);
 void read_info_header(bmp_info_header *hdr, FILE *file);
 void decompress_image(Color **pixels, i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, FILE *file);
 void draw_image(Color **pixels, i32 width, i32 height);
+int show_bmp(char *filename);
 
 #endif // BMP_VYU_H
 

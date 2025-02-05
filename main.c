@@ -40,8 +40,8 @@ main(int argc, char **argv) {
     Color **pixels = (Color **) malloc (sizeof(Color *) * abs(info_hdr.height));
     for (int i = 0; i < abs(info_hdr.height); i++) pixels[i] = (Color *)malloc(sizeof(Color) * info_hdr.width);
 
-    decompress_image(info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
-    draw_image(info_hdr.width, info_hdr.height);
+    decompress_image(pixels, info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
+    draw_image(pixels, info_hdr.width, info_hdr.height);
 
     for (int i = 0; i < abs(info_hdr.height); i++) free(pixels[i]);
     free(pixels);

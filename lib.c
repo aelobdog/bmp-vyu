@@ -20,7 +20,7 @@
 #include <raylib.h>
 
 int
-show_bmp(char* filename) {
+show_bmp(char *filename) {
     char *image;
     byte err;
     FILE *image_file;
@@ -37,8 +37,8 @@ show_bmp(char* filename) {
     Color **pixels = (Color **) malloc (sizeof(Color *) * abs(info_hdr.height));
     for (int i = 0; i < abs(info_hdr.height); i++) pixels[i] = (Color *)malloc(sizeof(Color) * info_hdr.width);
 
-    decompress_image(info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
-    draw_image(info_hdr.width, info_hdr.height);
+    decompress_image(pixels, info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
+    draw_image(pixels, info_hdr.width, info_hdr.height);
 
     for (int i = 0; i < abs(info_hdr.height); i++) free(pixels[i]);
     free(pixels);
