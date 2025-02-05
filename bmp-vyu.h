@@ -60,8 +60,8 @@ struct bmp_info_header {
 
 byte read_header(bmp_header *hdr, FILE *file);
 void read_info_header(bmp_info_header *hdr, FILE *file);
-void decompress_image(i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, FILE *file);
-void draw_image(i32 width, i32 height);
+void decompress_image(Color **pixels, i32 width, i32 height, bmp_header *bhdr, bmp_info_header *hdr, FILE *file);
+void draw_image(Color **pixels, i32 width, i32 height);
 
 #endif // BMP_VYU_H
 
