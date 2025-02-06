@@ -269,3 +269,29 @@ draw_image(Color **pixels, i32 width, i32 height) {
     CloseWindow();
 }
 
+int
+show_bmp(char *filename) {
+    char *image;
+    byte err;
+    FILE *image_file;
+    bmp_header hdr;
+    bmp_info_header info_hdr;
+
+    image_file = fopen(filename, "r");
+
+    err = read_header(&hdr, image_file);
+    if (err == 1) return -1;
+
+    read_info_header(&info_hdr, image_file);
+
+    Color **pixels = (Color **) malloc (sizeof(Color *) * abs(info_hdr.height));
+    for (int i = 0; i < abs(info_hdr.height); i++) pixels[i] = (Color *)malloc(sizeof(Color) * info_hdr.width);
+
+    decompress_image(pixels, info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
+    draw_image(pixels, info_hdr.width, info_hdr.height);
+
+    for (int i = 0; i < abs(info_hdr.height); i++) free(pixels[i]);
+    free(pixels);
+    fclose(image_file);
+    return 0;
+}

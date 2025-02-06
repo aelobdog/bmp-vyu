@@ -22,29 +22,7 @@
 int
 main(int argc, char **argv) {
     (void)argc;
-    char *image;
-    byte err;
-    FILE *image_file;
-    bmp_header hdr;
-    bmp_info_header info_hdr;
-
     if (argc < 2) return 1;
-    image = argv[1];
-    image_file = fopen(image, "r");
-
-    err = read_header(&hdr, image_file);
-    if (err == 1) printf("not a valid bmp\n");
-
-    read_info_header(&info_hdr, image_file);
-
-    Color **pixels = (Color **) malloc (sizeof(Color *) * abs(info_hdr.height));
-    for (int i = 0; i < abs(info_hdr.height); i++) pixels[i] = (Color *)malloc(sizeof(Color) * info_hdr.width);
-
-    decompress_image(pixels, info_hdr.width, info_hdr.height, &hdr, &info_hdr, image_file);
-    draw_image(pixels, info_hdr.width, info_hdr.height);
-
-    for (int i = 0; i < abs(info_hdr.height); i++) free(pixels[i]);
-    free(pixels);
-    fclose(image_file);
+    show_bmp(argv[1]);
     return 0;
 }
